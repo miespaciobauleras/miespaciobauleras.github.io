@@ -33,9 +33,17 @@
   .msg { color:#b41e1e; font-size:14px; min-height:20px; margin-top:12px; }
 
   /* pestañas */
-  .tabs { display:flex; gap:8px; margin-bottom:12px; }
-  .tabs button { background:#dbe5e1; color:var(--verde2); }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+  .tabs button { background:#dbe5e1; color:var(--verde2); flex:1 1 auto;
+                 font-size:14px; padding:10px 8px; }
   .tabs button.on { background:var(--verde); color:#fff; }
+  .tabs button.salir { background:#e6d3d3; color:#8a1e1e; flex:0 0 auto; }
+  select#ccSel { width:100%; padding:11px; font-size:15px; background:#fff;
+                 border:1px solid #c3d0cb; border-radius:10px; margin-bottom:10px; }
+  .ccley { font-weight:700; font-size:15px; padding:6px 4px 12px; }
+  .ccley.debe { color:#b41e1e; } .ccley.favor { color:#147838; }
+  .ccley.aldia { color:#1b4332; }
+  td.num.rojo { color:#b41e1e; } td.num.verde { color:#147838; }
 
   /* tarjetas de alquileres */
   .card { background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:10px;
@@ -135,13 +143,12 @@
   <div class="wrap">
     <div class="tabs">
       <button id="tabA" class="on" onclick="ver('A')">Alquileres</button>
+      <button id="tabCC" onclick="ver('CC')">Ctas Ctes</button>
       <button id="tabC" onclick="ver('C')">Cobros</button>
-    </div>
-    <div class="barra">
-      <button onclick="recargar()">↻ Actualizar</button>
-      <button onclick="salir()">Salir</button>
+      <button class="salir" onclick="salir()">Salir</button>
     </div>
     <div id="vistaA"></div>
+    <div id="vistaCC" class="hidden"></div>
     <div id="vistaC" class="hidden"></div>
     <div class="foot">Datos privados · protegidos por PIN</div>
   </div>
@@ -188,6 +195,7 @@
     document.getElementById("act").textContent =
       data.actualizado ? ("Actualizado: " + data.actualizado) : "";
     pintarAlquileres();
+    pintarCtaCte();
     pintarCobros();
   }
 
@@ -206,10 +214,10 @@
   }
 
   function ver(cual) {
-    document.getElementById("tabA").classList.toggle("on", cual === "A");
-    document.getElementById("tabC").classList.toggle("on", cual === "C");
-    document.getElementById("vistaA").classList.toggle("hidden", cual !== "A");
-    document.getElementById("vistaC").classList.toggle("hidden", cual !== "C");
+    ["A", "CC", "C"].forEach(function (t) {
+      document.getElementById("tab" + t).classList.toggle("on", cual === t);
+      document.getElementById("vista" + t).classList.toggle("hidden", cual !== t);
+    });
   }
 
   function fmt(n) {
@@ -280,6 +288,51 @@
     }
     html += "</table>";
     cont.innerHTML = html;
+  }
+
+  function pintarCtaCte() {
+    var cont = document.getElementById("vistaCC");
+    var res = DATOS.ctacteResumen || [];
+    if (!res.length) {
+      cont.innerHTML = '<div class="vacio">Sin cuentas corrientes.</div>';
+      return;
+    }
+    var opts = res.map(function (r, i) {
+      return '<option value="' + i + '">' + esc(r.cliente) + '</option>';
+    }).join("");
+    cont.innerHTML =
+      '<select id="ccSel" onchange="ccRender()">' + opts + '</select>' +
+      '<div id="ccLey" class="ccley"></div><div id="ccTab"></div>';
+    ccRender();
+  }
+
+  function money(n) {
+    n = Math.round(Number(n) || 0);
+    return (n < 0 ? "-$ " : "$ ") + fmt(Math.abs(n));
+  }
+
+  function ccRender() {
+    var i = parseInt(document.getElementById("ccSel").value, 10) || 0;
+    var r = DATOS.ctacteResumen[i];
+    var ley = document.getElementById("ccLey");
+    ley.textContent = r.leyenda;
+    ley.className = "ccley " + (r.saldo > 0 ? "debe" : r.saldo < 0 ? "favor" : "aldia");
+    var movs = (DATOS.ctacteMovs || []).filter(function (m) {
+      return m.cliente === r.cliente;
+    });
+    var html = '<table><tr><th>Fecha</th><th>Concepto</th>' +
+               '<th class="num">Débito</th><th class="num">Crédito</th>' +
+               '<th class="num">Saldo</th></tr>';
+    for (var j = 0; j < movs.length; j++) {
+      var m = movs[j];
+      var cls = m.saldo > 0 ? "rojo" : m.saldo < 0 ? "verde" : "";
+      html += '<tr><td>' + esc(m.fecha) + '</td><td>' + esc(m.concepto) + '</td>' +
+              '<td class="num">' + (m.debito ? money(m.debito) : "") + '</td>' +
+              '<td class="num">' + (m.credito ? money(m.credito) : "") + '</td>' +
+              '<td class="num ' + cls + '">' + money(m.saldo) + '</td></tr>';
+    }
+    html += "</table>";
+    document.getElementById("ccTab").innerHTML = html;
   }
 
   function esc(s) {

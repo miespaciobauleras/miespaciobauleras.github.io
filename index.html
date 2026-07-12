@@ -49,6 +49,7 @@
   .card .precio { font-weight:700; color:var(--verde2); }
   .card .cli { margin:2px 0 6px; font-size:15px; }
   .card .linea { font-size:13px; color:#4a574f; }
+  .card .linea.aviso { color:#a15c00; font-weight:600; }
   .pill { display:inline-block; font-size:12px; font-weight:700; padding:2px 8px;
           border-radius:20px; color:#fff; }
   .pill.ok { background:#2e9e5b; } .pill.previo { background:#c78a12; }
@@ -241,14 +242,22 @@
         acc += '<a class="wa" target="_blank" rel="noopener" href="https://wa.me/' +
                x.wa + '?text=' + encodeURIComponent(x.mensaje || "") + '">💬 WhatsApp</a>';
       }
+      var avisoLinea = "";
+      if (x.etapa !== "ok" && x.avisoFecha) {
+        avisoLinea = '<div class="linea aviso">✉️ Último aviso: ' +
+          (ETIQ[x.avisoTipo] || esc(x.avisoTipo)) + ' · ' + esc(x.avisoFecha) +
+          '</div>';
+      }
       html +=
         '<div class="card ' + x.etapa + '">' +
           '<div class="top"><span class="baulera">Baulera ' + esc(x.baulera) + '</span>' +
             '<span class="precio">$ ' + fmt(x.precio) + '</span></div>' +
           '<div class="cli">' + esc(x.cliente) + '</div>' +
+          (x.inicio ? '<div class="linea">Inicio: ' + esc(x.inicio) + '</div>' : '') +
           '<div class="linea">Vence: ' + esc(x.vencimiento) + ' · ' +
             '<span class="pill ' + x.etapa + '">' + ETIQ[x.etapa] + '</span> ' +
             textoDias(x.dias, x.etapa) + '</div>' +
+          avisoLinea +
           (tel ? '<div class="linea">📞 ' + esc(x.telefono) + '</div>' : '') +
           (acc ? '<div class="acc">' + acc + '</div>' : '') +
         '</div>';

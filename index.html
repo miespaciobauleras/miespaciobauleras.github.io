@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Mi Espacio Bauleras</title>
+<style>
+  :root { --verde:#2d6a4f; --verde2:#1b4332; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+         background:#eef2f1; color:#1c2321; }
+  header { background:var(--verde); color:#fff; padding:14px 16px;
+           position:sticky; top:0; z-index:5; }
+  header h1 { margin:0; font-size:18px; font-weight:700; }
+  header .act { font-size:11px; opacity:.85; margin-top:2px; }
+  .wrap { max-width:760px; margin:0 auto; padding:14px; }
+
+  /* pantalla de PIN */
+  #login { max-width:340px; margin:12vh auto 0; text-align:center; padding:0 18px; }
+  #login .logo { width:76px; height:76px; border-radius:18px; background:var(--verde);
+                 color:#fff; font-size:34px; font-weight:800; display:flex;
+                 align-items:center; justify-content:center; margin:0 auto 18px; }
+  #login h2 { margin:0 0 4px; font-size:20px; }
+  #login p { margin:0 0 20px; color:#5a6a63; font-size:14px; }
+  input[type=password], input[type=tel] {
+    width:100%; padding:14px; font-size:20px; text-align:center; letter-spacing:4px;
+    border:1px solid #c3d0cb; border-radius:12px; background:#fff; }
+  button { cursor:pointer; border:none; border-radius:12px; font-size:16px;
+           font-weight:700; padding:14px; width:100%; margin-top:12px;
+           background:var(--verde); color:#fff; }
+  button:active { background:var(--verde2); }
+  .msg { color:#b41e1e; font-size:14px; min-height:20px; margin-top:12px; }
+
+  /* pestañas */
+  .tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .tabs button { background:#dbe5e1; color:var(--verde2); }
+  .tabs button.on { background:var(--verde); color:#fff; }
+
+  /* tarjetas de alquileres */
+  .card { background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:10px;
+          border-left:6px solid #9bb; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+  .card.ok { border-left-color:#2e9e5b; }
+  .card.previo { border-left-color:#e0a92e; }
+  .card.vencido { border-left-color:#e8702a; }
+  .card.mora { border-left-color:#c0362c; }
+  .card .top { display:flex; justify-content:space-between; align-items:baseline; }
+  .card .baulera { font-weight:800; font-size:16px; }
+  .card .precio { font-weight:700; color:var(--verde2); }
+  .card .cli { margin:2px 0 6px; font-size:15px; }
+  .card .linea { font-size:13px; color:#4a574f; }
+  .pill { display:inline-block; font-size:12px; font-weight:700; padding:2px 8px;
+          border-radius:20px; color:#fff; }
+  .pill.ok { background:#2e9e5b; } .pill.previo { background:#c78a12; }
+  .pill.vencido { background:#e8702a; } .pill.mora { background:#c0362c; }
+  a.tel { color:var(--verde); text-decoration:none; font-weight:600; }
+
+  /* tabla de cobros */
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:12px;
+          overflow:hidden; font-size:13px; }
+  th, td { padding:8px 10px; text-align:left; border-bottom:1px solid #edf1ef; }
+  th { background:#dbe5e1; color:var(--verde2); font-size:12px; }
+  td.num { text-align:right; white-space:nowrap; }
+  .foot { text-align:center; color:#7a8781; font-size:12px; margin:16px 0 8px; }
+  .barra { display:flex; gap:8px; margin-bottom:10px; }
+  .barra button { background:#dbe5e1; color:var(--verde2); font-size:13px; padding:9px; }
+  .hidden { display:none; }
+  .vacio { text-align:center; color:#7a8781; padding:26px; }
+</style>
+</head>
+<body>
+
+<!-- ================== CONFIGURAR ESTO UNA SOLA VEZ ================== -->
+<script>
+  // Pegá acá la URL de la Web App (la que termina en /exec).
+  var API_URL = "https://script.google.com/macros/s/AKfycbzU7q0ZXRUW1jL17IEP5bj-jualTxTpcpxuk6PftOPrXy2xain_bf5XLrnmm6-cGAjEZg/exec";
+</script>
+<!-- ================================================================= -->
+
+<!-- pantalla de ingreso -->
+<div id="login">
+  <div class="logo">MB</div>
+  <h2>Mi Espacio Bauleras</h2>
+  <p>Ingresá el PIN para ver los alquileres.</p>
+  <input id="pin" type="password" inputmode="numeric" placeholder=""PIN de 8 dígitos""
+         autocomplete="off" maxlength="8" pattern="[0-9]*"
+         oninput="this.value=this.value.replace(/\D/g,'')"
+         onkeydown="if(event.key==='Enter')entrar()">
+  <button onclick="entrar()">Entrar</button>
+  <div class="msg" id="msg"></div>
+</div>
+
+<!-- panel de datos -->
+<div id="app" class="hidden">
+  <header>
+    <h1>Mi Espacio Bauleras</h1>
+    <div class="act" id="act"></div>
+  </header>
+  <div class="wrap">
+    <div class="tabs">
+      <button id="tabA" class="on" onclick="ver('A')">Alquileres</button>
+      <button id="tabC" onclick="ver('C')">Cobros</button>
+    </div>
+    <div class="barra">
+      <button onclick="recargar()">↻ Actualizar</button>
+      <button onclick="salir()">Salir</button>
+    </div>
+    <div id="vistaA"></div>
+    <div id="vistaC" class="hidden"></div>
+    <div class="foot">Datos privados · protegidos por PIN</div>
+  </div>
+</div>
+
+<script>
+  var DATOS = null;
+
+  function entrar() {
+    var pin = document.getElementById("pin").value.trim();
+    if (!pin) { return; }
+    document.getElementById("msg").textContent = "Verificando…";
+    pedir(pin);
+  }
+
+  function pedir(pin) {
+    if (API_URL.indexOf("PEGAR") >= 0 || API_URL.indexOf("/exec") < 0) {
+      document.getElementById("msg").textContent =
+        "Falta configurar la URL de la Web App en el archivo.";
+      return;
+    }
+    window.__cb = function (data) { recibir(pin, data); };
+    var s = document.createElement("script");
+    s.src = API_URL + "?pin=" + encodeURIComponent(pin) +
+            "&callback=__cb&t=" + Date.now();
+    s.onerror = function () {
+      document.getElementById("msg").textContent = "No se pudo conectar.";
+    };
+    document.body.appendChild(s);
+    setTimeout(function () { if (s.parentNode) { s.parentNode.removeChild(s); } }, 100);
+  }
+
+  function recibir(pin, data) {
+    if (!data || data.error) {
+      document.getElementById("msg").textContent =
+        (data && data.error) ? data.error : "Error al conectar.";
+      localStorage.removeItem("bauleras_pin");
+      return;
+    }
+    localStorage.setItem("bauleras_pin", pin);
+    DATOS = data;
+    document.getElementById("login").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    document.getElementById("act").textContent =
+      data.actualizado ? ("Actualizado: " + data.actualizado) : "";
+    pintarAlquileres();
+    pintarCobros();
+  }
+
+  function recargar() {
+    var pin = localStorage.getItem("bauleras_pin");
+    if (pin) { pedir(pin); }
+  }
+
+  function salir() {
+    localStorage.removeItem("bauleras_pin");
+    DATOS = null;
+    document.getElementById("app").classList.add("hidden");
+    document.getElementById("login").classList.remove("hidden");
+    document.getElementById("pin").value = "";
+    document.getElementById("msg").textContent = "";
+  }
+
+  function ver(cual) {
+    document.getElementById("tabA").classList.toggle("on", cual === "A");
+    document.getElementById("tabC").classList.toggle("on", cual === "C");
+    document.getElementById("vistaA").classList.toggle("hidden", cual !== "A");
+    document.getElementById("vistaC").classList.toggle("hidden", cual !== "C");
+  }
+
+  function fmt(n) {
+    n = Math.round(Number(n) || 0);
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function textoDias(d, etapa) {
+    if (d === "" || d === null || d === undefined) { return ""; }
+    d = Number(d);
+    if (d === 0) { return "vence hoy"; }
+    if (d > 0) { return "vence en " + d + " día" + (d === 1 ? "" : "s"); }
+    return "vencida hace " + (-d) + " día" + (d === -1 ? "" : "s");
+  }
+  var ETIQ = { ok:"Al día", previo:"Por vencer", vencido:"Vencida", mora:"En mora" };
+
+  function pintarAlquileres() {
+    var cont = document.getElementById("vistaA");
+    var a = DATOS.alquileres || [];
+    if (!a.length) { cont.innerHTML = '<div class="vacio">Sin alquileres activos.</div>'; return; }
+    var html = "";
+    for (var i = 0; i < a.length; i++) {
+      var x = a[i];
+      var tel = String(x.telefono || "").replace(/[^\d+]/g, "");
+      html +=
+        '<div class="card ' + x.etapa + '">' +
+          '<div class="top"><span class="baulera">Baulera ' + esc(x.baulera) + '</span>' +
+            '<span class="precio">$ ' + fmt(x.precio) + '</span></div>' +
+          '<div class="cli">' + esc(x.cliente) + '</div>' +
+          '<div class="linea">Vence: ' + esc(x.vencimiento) + ' · ' +
+            '<span class="pill ' + x.etapa + '">' + ETIQ[x.etapa] + '</span> ' +
+            textoDias(x.dias, x.etapa) + '</div>' +
+          (tel ? '<div class="linea">📞 <a class="tel" href="tel:' + tel + '">' +
+            esc(x.telefono) + '</a></div>' : '') +
+        '</div>';
+    }
+    cont.innerHTML = html;
+  }
+
+  function pintarCobros() {
+    var cont = document.getElementById("vistaC");
+    var k = DATOS.cobros || [];
+    if (!k.length) { cont.innerHTML = '<div class="vacio">Sin cobros registrados.</div>'; return; }
+    var html = '<table><tr><th>Fecha</th><th>Cliente</th><th>Baul.</th>' +
+               '<th class="num">Total</th><th>Medio</th></tr>';
+    for (var i = 0; i < k.length; i++) {
+      var c = k[i];
+      html += '<tr><td>' + esc(c.fecha) + '</td><td>' + esc(c.cliente) + '</td>' +
+              '<td>' + esc(c.baulera) + '</td>' +
+              '<td class="num">$ ' + fmt(c.total) + '</td>' +
+              '<td>' + esc(c.medio) + '</td></tr>';
+    }
+    html += "</table>";
+    cont.innerHTML = html;
+  }
+
+  function esc(s) {
+    return String(s === null || s === undefined ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // reingreso automático si ya se validó antes en este teléfono
+  (function () {
+    var pin = localStorage.getItem("bauleras_pin");
+    if (pin) { pedir(pin); }
+  })();
+</script>
+</body>
+</html>

@@ -33,16 +33,18 @@
   .msg { color:#b41e1e; font-size:14px; min-height:20px; margin-top:12px; }
 
   /* pestañas */
-  .tabs { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
-  .tabs button { background:#dbe5e1; color:var(--verde2); flex:1 1 auto;
-                 font-size:14px; padding:10px 8px; }
+  .tabs { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+  .tabs button { background:#dbe5e1; color:var(--verde2); font-size:15px;
+                 padding:12px 8px; }
   .tabs button.on { background:var(--verde); color:#fff; }
-  .tabs button.salir { background:#e6d3d3; color:#8a1e1e; flex:0 0 auto; }
+  .tabs button.salir { background:#e6d3d3; color:#8a1e1e; }
   select#ccSel { width:100%; padding:11px; font-size:15px; background:#fff;
                  border:1px solid #c3d0cb; border-radius:10px; margin-bottom:10px; }
   .ccley { font-weight:700; font-size:15px; padding:6px 4px 12px; }
   .ccley.debe { color:#b41e1e; } .ccley.favor { color:#147838; }
   .ccley.aldia { color:#1b4332; }
+  #ccTab { overflow-x:auto; }
+  #ccTab td, #ccTab th { padding:7px 8px; }
   td.num.rojo { color:#b41e1e; } td.num.verde { color:#147838; }
 
   /* tarjetas de alquileres */
@@ -150,12 +152,30 @@
     <div id="vistaA"></div>
     <div id="vistaCC" class="hidden"></div>
     <div id="vistaC" class="hidden"></div>
-    <div class="foot">Datos privados · protegidos por PIN</div>
+    <div class="foot" id="foot">Datos privados · protegidos por PIN</div>
   </div>
 </div>
 
 <script>
   var DATOS = null;
+  // El PIN se guarda SOLO en la sesión (sessionStorage: se borra al cerrar la
+  // app) y además EXPIRA por inactividad. Así, si roban/pierden el celular,
+  // al rato la app vuelve a pedir el PIN y no queda la info accesible.
+  var EXPIRA_MIN = 10;
+
+  function guardarAuth(pin) {
+    try { sessionStorage.setItem("bauleras_auth",
+      JSON.stringify({ pin: pin, ts: Date.now() })); } catch (e) {}
+  }
+  function leerAuth() {
+    try {
+      var a = JSON.parse(sessionStorage.getItem("bauleras_auth"));
+      if (a && a.pin && (Date.now() - a.ts) < EXPIRA_MIN * 60000) { return a.pin; }
+    } catch (e) {}
+    return null;
+  }
+  function limpiarAuth() { try { sessionStorage.removeItem("bauleras_auth"); } catch (e) {} }
+  function tocar() { var p = leerAuth(); if (p) { guardarAuth(p); } }  // renueva la ventana
 
   function entrar() {
     var pin = document.getElementById("pin").value.trim();
@@ -185,27 +205,29 @@
     if (!data || data.error) {
       document.getElementById("msg").textContent =
         (data && data.error) ? data.error : "Error al conectar.";
-      localStorage.removeItem("bauleras_pin");
+      limpiarAuth();
       return;
     }
-    localStorage.setItem("bauleras_pin", pin);
+    guardarAuth(pin);
     DATOS = data;
     document.getElementById("login").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
     document.getElementById("act").textContent =
       data.actualizado ? ("Actualizado: " + data.actualizado) : "";
+    document.getElementById("foot").textContent =
+      "Datos privados · protegidos por PIN · script " + (data.version || "viejo");
     pintarAlquileres();
     pintarCtaCte();
     pintarCobros();
   }
 
   function recargar() {
-    var pin = localStorage.getItem("bauleras_pin");
+    var pin = leerAuth();
     if (pin) { pedir(pin); }
   }
 
   function salir() {
-    localStorage.removeItem("bauleras_pin");
+    limpiarAuth();
     DATOS = null;
     document.getElementById("app").classList.add("hidden");
     document.getElementById("login").classList.remove("hidden");
@@ -214,6 +236,7 @@
   }
 
   function ver(cual) {
+    tocar();
     ["A", "CC", "C"].forEach(function (t) {
       document.getElementById("tab" + t).classList.toggle("on", cual === t);
       document.getElementById("vista" + t).classList.toggle("hidden", cual !== t);
@@ -311,7 +334,13 @@
     return (n < 0 ? "-$ " : "$ ") + fmt(Math.abs(n));
   }
 
+  function fechaCorta(s) {   // "21/04/2026" -> "21/04/26"
+    var m = String(s || "").match(/^(\d{2})\/(\d{2})\/\d{2}(\d{2})$/);
+    return m ? (m[1] + "/" + m[2] + "/" + m[3]) : (s || "");
+  }
+
   function ccRender() {
+    tocar();
     var i = parseInt(document.getElementById("ccSel").value, 10) || 0;
     var r = DATOS.ctacteResumen[i];
     var ley = document.getElementById("ccLey");
@@ -326,7 +355,8 @@
     for (var j = 0; j < movs.length; j++) {
       var m = movs[j];
       var cls = m.saldo > 0 ? "rojo" : m.saldo < 0 ? "verde" : "";
-      html += '<tr><td>' + esc(m.fecha) + '</td><td>' + esc(m.concepto) + '</td>' +
+      html += '<tr><td>' + esc(fechaCorta(m.fecha)) + '</td><td>' +
+              esc(m.concepto) + '</td>' +
               '<td class="num">' + (m.debito ? money(m.debito) : "") + '</td>' +
               '<td class="num">' + (m.credito ? money(m.credito) : "") + '</td>' +
               '<td class="num ' + cls + '">' + money(m.saldo) + '</td></tr>';
@@ -340,11 +370,21 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
-  // reingreso automático si ya se validó antes en este teléfono
+  // reingreso solo si la sesión sigue vigente (no expiró por inactividad)
   (function () {
-    var pin = localStorage.getItem("bauleras_pin");
+    var pin = leerAuth();
     if (pin) { pedir(pin); }
   })();
+
+  // al volver a la app (después de tenerla en segundo plano), si la sesión
+  // expiró, se bloquea y pide el PIN de nuevo
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible"
+        && !document.getElementById("app").classList.contains("hidden")
+        && !leerAuth()) {
+      salir();
+    }
+  });
 </script>
 </body>
 </html>
